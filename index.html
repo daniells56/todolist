@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>todolist app</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+        body {
+            background-color: #b3e8e8;
+            padding: 10px;
+        }
+        .container-login,
+        .login {
+            background-color: rgb(240, 240, 240);
+            border-radius: 20px;
+            max-width: 750px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .container-login {
+            display: none;
+        }
+
+        .container-login input, .login input {
+            width: 100%;
+            height: 40px;
+            display: block;
+            max-width: 500px;
+            margin: 10px auto;
+            padding-left: 10px;
+        }
+        .tarefas-usuario ul{
+            list-style-type: none;
+        }
+
+        .tarefas-usuario li{
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .container-login textarea {
+            width: 100%;
+            height: 120px;
+            display: block;
+            max-width: 500px;
+            margin: 10px auto;
+            padding: 10px;
+        }
+        .container-login input[type=submit], .login input[type=submit] {
+            background-color: darkorchid;
+            color: white;
+            font-size: 15px;
+            border: 0;
+            cursor: pointer;
+        }
+
+        .login button {
+            background-color: darkorchid;
+            color: white;
+            font-size: 15px;
+            border: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 40px;
+            display: block;
+            max-width: 500px;
+            margin: 10px auto;
+            padding-left: 10px;
+        }
+
+        .logout {
+            width: 200px;
+            height: 50px;
+            margin-top: 10px;
+            background-color: darkorchid;
+            color: white;
+            border: none;
+        }
+        .anim{
+            transition: all 0.2s;
+        }
+        .anim:hover{
+            transition: all 0.2s;
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login">
+        <h1>Faca o Login no App</h1>
+        <form class="login-form">
+            <input type="email" name="email" >
+            <input type="password" name="password" >
+            <input type="submit" name="acao" class="anim" value="Logar">
+        </form>
+        <button class="create anim">Criar Conta</button>
+    </div>
+
+    <div class="container-login">
+        <h2>Olá, você está logado.</h2>
+        <button class="logout anim">Deslogar</button>
+        <form class="form-cadastro-tarefa">
+            <textarea name="tarefa" placeholder="Nome da Sua Tarefa"></textarea>
+            <input type="datetime-local" name="datetime">
+            <input type="submit" class="anim" name="acao" value="Cadastrar Tarefa">
+        </form>
+        <div class="tarefas-usuario">
+            <h3>Listagem de Tarefas Atuais:</h3>
+            <ul id="tarefas"></ul>
+
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword} from "https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.1/firebase-auth.min.js"
+        import { getFirestore, query, where, collection, doc, setDoc, getDoc, getDocs, addDoc, onSnapshot } from "https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.1/firebase-firestore.min.js"
+
+
+
+        const firebaseConfig = {
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+
+        const auth = getAuth();
+        const db = getFirestore(app);
+        const dbRef = collection(db, "tarefas");
+
+
+        const create =  document.querySelector(".create")
+
+        create.addEventListener('click', (e)=>{
+        let email = document.querySelector('[name=email]').value
+        let password = document.querySelector('[name=password]').value
+            createUserWithEmailAndPassword(auth, email, password)
+            .then((userCredential) => {
+                // Signed in
+                const user = userCredential.user;
+                // ...
+                alert("Conta Criada com Sucesso!")
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                // ..
+            });
+        })
+
+
+        // Comecamos aqui
+
+        var usuario = null;
+
+        var formLogin = document.querySelector("form.login-form");
+        var logout = document.querySelector(".logout")
+
+        logout.addEventListener('click', (e)=>{
+        signOut(auth).then(() => {
+        // Sign-out successful.
+        const user = null;
+        document.querySelector(".container-login").style.display = "none";
+        document.querySelector(".login").style.display = "block";
+        alert('Deslogado.')
+        }).catch((error) => {
+        // An error happened.
+        })
+    })
+
+    formLogin.addEventListener('submit', (e)=>{
+            e.preventDefault();
+            let email = document.querySelector('[name=email]').value
+            let password = document.querySelector('[name=password]').value
+
+        signInWithEmailAndPassword(auth, email, password)
+        .then((userCredential) => {
+            // Signed in
+
+
+            const user = userCredential.user;
+            console.log(user)
+            document.querySelector(".container-login").style.display = "block";
+            document.querySelector(".login").style.display = "none";
+            //alert('Logado com sucesso ' + email)
+
+            formLogin.reset();
+            // ...
+        })
+        .catch((error) => {
+            const errorCode = error.code;
+            const errorMessage = error.message;
+            alert("Usuario ou Senha errado.")
+        });
+    })
+
+    async function updateTasks() {
+        const q = query(collection(db, "tarefas"), where("userId", "==", usuario.uid));
+        const querySnapshot = await getDocs(q);
+
+
+
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const taref = [];
+        querySnapshot.forEach((doc) => {
+            taref.push(doc.data().tarefa);
+        });
+        console.log("Current cities in CA: ", taref.join(", "));
+        let list = document.querySelector("#tarefas")
+        list.innerHTML = ""
+        list.innerHTML+=`<li>${taref.join(", <br> <li> ")}`
+        });
+
+
+    }
+
+
+    onAuthStateChanged(auth, (user) => {
+    if (user) {
+
+        usuario = user;
+        document.querySelector(".container-login").style.display = "block";
+        document.querySelector(".login").style.display = "none";
+        //alert("Bem Vindo de Volta " + usuario.email)
+        updateTasks()
+
+    } else {
+
+    }
+    });
+
+
+
+
+    var formCadastro = document.querySelector(".form-cadastro-tarefa")
+
+
+    formCadastro.addEventListener("submit", (e)=>{
+        e.preventDefault();
+        let tarefa =   document.querySelector(".form-cadastro-tarefa [name=tarefa]").value;
+        let dateTime = document.querySelector(".form-cadastro-tarefa [name=datetime]").value;
+        let dataAtual = new Date().getTime();
+        let id = usuario.uid;
+        if(dataAtual > new Date(dateTime).getTime()){
+            alert("Voce informou uma data no passado")
+        } else {
+            if (tarefa, dateTime != ""){
+                const docRef = addDoc(collection(db, "tarefas"), {
+                    tarefa: tarefa,
+                    horario: dateTime,
+                    userId: id
+                });
+                formCadastro.reset();
+                alert("tarefa cadastrada com sucesso!")
+            } else {
+                alert("Voce precisa preencher todos os campos.")
+                formCadastro.reset();
+            }
+        }
+    })
+
+
+
+
+
+
+/*
+    const docRef = doc(db, "tarefas", "tarefas");
+    const docSnap = await getDoc(docRef);
+
+
+    if (docSnap.exists()) {
+    console.log("Document data:", docSnap.data());
+    } else {
+    // docSnap.data() will be undefined in this case
+    console.log("No such document!");
+    }
+    */
+
+      </script>
+
+</body>
+</html>
